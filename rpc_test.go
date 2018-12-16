@@ -104,10 +104,7 @@ func setup() {
 	wm := server.NewWebsocketManager(Routes, RoutesCdc, server.ReadWait(5*time.Second), server.PingPeriod(1*time.Second))
 	mux.HandleFunc(websocketEndpoint, wm.WebsocketHandler)
 	go func() {
-		_, err := server.StartHTTPServer(tcpAddr, mux, server.Config{})
-		if err != nil {
-			panic(err)
-		}
+		server.StartHTTPServer(tcpAddr, mux, server.Config{})
 	}()
 
 	mux2 := http.NewServeMux()
@@ -115,10 +112,7 @@ func setup() {
 	wm = server.NewWebsocketManager(Routes, RoutesCdc)
 	mux2.HandleFunc(websocketEndpoint, wm.WebsocketHandler)
 	go func() {
-		_, err := server.StartHTTPServer(unixAddr, mux2, server.Config{})
-		if err != nil {
-			panic(err)
-		}
+		server.StartHTTPServer(unixAddr, mux2, server.Config{})
 	}()
 
 	// wait for servers to start

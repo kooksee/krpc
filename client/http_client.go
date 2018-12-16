@@ -1,4 +1,4 @@
-package rpcclient
+package krpcc
 
 import (
 	"bytes"
@@ -15,7 +15,7 @@ import (
 	"github.com/tendermint/go-amino"
 
 	types "github.com/kooksee/krpc/types"
-	"github.com/rs/zerolog/log"
+	"github.com/google/uuid"
 )
 
 const (
@@ -99,27 +99,27 @@ func NewJSONRPCClient(remote string) *JSONRPCClient {
 	}
 }
 
-func (c *JSONRPCClient) Call(method string, params map[string]interface{}, result interface{}) (interface{}, error) {
-	request, err := types.MapToRequest(c.cdc, "jsonrpc-client", method, params)
+func (c *JSONRPCClient) Call(method string, params map[string]interface{}, result interface{}) error {
+	request, err := types.MapToRequest(c.cdc, uuid.New().String(), method, params)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	requestBytes, err := json.Marshal(request)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	log.Debug().Msg(string(requestBytes))
 	requestBuf := bytes.NewBuffer(requestBytes)
 	log.Info().Msg(fmt.Sprintf("RPC request to %v (%v): %v", c.client, method, string(requestBytes)))
 	httpResponse, err := c.client.Post(c.address, "text/json", requestBuf)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer httpResponse.Body.Close() // nolint: errcheck
 
 	responseBytes, err := ioutil.ReadAll(httpResponse.Body)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	log.Info().Msg(fmt.Sprintf("RPC response: %v", string(responseBytes)))
 	return unmarshalResponseBytes(c.cdc, responseBytes, result)
@@ -151,21 +151,21 @@ func NewURIClient(remote string) *URIClient {
 	}
 }
 
-func (c *URIClient) Call(method string, params map[string]interface{}, result interface{}) (interface{}, error) {
+func (c *URIClient) Call(method string, params map[string]interface{}, result interface{}) error {
 	values, err := argsToURLValues(c.cdc, params)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	log.Info().Msg(fmt.Sprintf("URI request to %v (%v): %v", c.address, method, values))
 	resp, err := c.client.PostForm(c.address+"/"+method, values)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer resp.Body.Close() // nolint: errcheck
 
 	responseBytes, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	return unmarshalResponseBytes(c.cdc, responseBytes, result)
 }
@@ -180,7 +180,7 @@ func (c *URIClient) SetCodec(cdc *amino.Codec) {
 
 //------------------------------------------------
 
-func unmarshalResponseBytes(cdc *amino.Codec, responseBytes []byte, result interface{}) (interface{}, error) {
+func unmarshalResponseBytes(cdc *amino.Codec, responseBytes []byte, result interface{}) error {
 	// Read response.  If rpc/core/types is imported, the result will unmarshal
 	// into the correct type.
 	log.Debug().Msg(string(responseBytes))
@@ -188,17 +188,17 @@ func unmarshalResponseBytes(cdc *amino.Codec, responseBytes []byte, result inter
 	response := &types.RPCResponse{}
 	err = json.Unmarshal(responseBytes, response)
 	if err != nil {
-		return nil, errors.Errorf("Error unmarshalling rpc response: %v", err)
+		return errors.Errorf("Error unmarshalling rpc response: %v", err)
 	}
 	if response.Error != nil {
-		return nil, errors.Errorf("Response error: %v", response.Error)
+		return errors.Errorf("Response error: %v", response.Error)
 	}
 	// Unmarshal the RawMessage into the result.
 	err = cdc.UnmarshalJSON(response.Result, result)
 	if err != nil {
-		return nil, errors.Errorf("Error unmarshalling rpc response result: %v", err)
+		return errors.Errorf("Error unmarshalling rpc response result: %v", err)
 	}
-	return result, nil
+	return nil
 }
 
 func argsToURLValues(cdc *amino.Codec, args map[string]interface{}) (url.Values, error) {

@@ -1,4 +1,4 @@
-package rpcserver_test
+package krpcs
 
 import (
 	"encoding/json"

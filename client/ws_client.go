@@ -1,4 +1,4 @@
-package rpcclient
+package krpcc
 
 import (
 	"context"
@@ -16,7 +16,6 @@ import (
 	"github.com/tendermint/go-amino"
 	types "github.com/kooksee/krpc/types"
 	"math/rand"
-	"github.com/rs/zerolog/log"
 )
 
 const (
@@ -403,11 +402,6 @@ func (c *WSClient) writeRoutine() {
 			c.mtx.Unlock()
 			log.Debug().Msg("sent ping")
 		case <-c.readRoutineQuit:
-			return
-		case <-c.Quit():
-			if err := c.conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, "")); err != nil {
-				log.Error().Err(err).Msg("failed to write message")
-			}
 			return
 		}
 	}

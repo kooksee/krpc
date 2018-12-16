@@ -1,4 +1,4 @@
-package rpcserver
+package krpcs
 
 import (
 	"encoding/hex"
@@ -6,7 +6,6 @@ import (
 	"regexp"
 	"strconv"
 
-	"github.com/pkg/errors"
 	"fmt"
 )
 
@@ -85,7 +84,7 @@ func GetParamFloat64(r *http.Request, param string) (float64, error) {
 	s := GetParam(r, param)
 	f, err := strconv.ParseFloat(s, 64)
 	if err != nil {
-		return 0, errors.Errorf(param, err.Error())
+		return 0, fmt.Errorf(param, err.Error())
 	}
 	return f, nil
 }

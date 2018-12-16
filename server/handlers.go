@@ -1,4 +1,4 @@
-package rpcserver
+package krpcs
 
 import (
 	"bytes"
@@ -18,7 +18,7 @@ import (
 
 	"github.com/tendermint/go-amino"
 	types "github.com/kooksee/krpc/types"
-	"github.com/rs/zerolog/log"
+	"github.com/google/uuid"
 )
 
 // RegisterRPCFuncs adds a route for each function in the funcMap, as well as general jsonrpc and websocket handlers for all functions.
@@ -102,7 +102,7 @@ func makeJSONRPCHandler(funcMap map[string]*RPCFunc, cdc *amino.Codec) http.Hand
 	return func(w http.ResponseWriter, r *http.Request) {
 		b, err := ioutil.ReadAll(r.Body)
 		if err != nil {
-			WriteRPCResponseHTTP(w, types.RPCInvalidRequestError("", errors.Wrap(err, "Error reading request body")))
+			WriteRPCResponseHTTP(w, types.RPCInvalidRequestError(uuid.New().String(), errors.Wrap(err, "Error reading request body")))
 			return
 		}
 		// if its an empty request (like from a browser),
@@ -115,12 +115,13 @@ func makeJSONRPCHandler(funcMap map[string]*RPCFunc, cdc *amino.Codec) http.Hand
 		var request types.RPCRequest
 		err = json.Unmarshal(b, &request)
 		if err != nil {
-			WriteRPCResponseHTTP(w, types.RPCParseError("", errors.Wrap(err, "Error unmarshalling request")))
+			WriteRPCResponseHTTP(w, types.RPCParseError(uuid.New().String(), errors.Wrap(err, "Error unmarshalling request")))
 			return
 		}
 		// A Notification is a Request object without an "id" member.
 		// The Server MUST NOT reply to a Notification, including those that are within a batch request.
 		if request.ID == "" {
+			request.ID = uuid.New().String()
 			log.Debug().Msg("HTTPJSONRPC received a notification, skipping... (please send a non-empty ID if you want to call a method)")
 			return
 		}
@@ -265,6 +266,7 @@ func makeHTTPHandler(rpcFunc *RPCFunc, cdc *amino.Codec) func(http.ResponseWrite
 			WriteRPCResponseHTTP(w, types.RPCInvalidParamsError("", errors.Wrap(err, "Error converting http params to arguments")))
 			return
 		}
+
 		returns := rpcFunc.f.Call(args)
 		log.Info().Str("method", r.URL.Path).Interface("args", args).Interface("returns", returns).Msg("HTTPRestRPC")
 		result, err := unreflectResult(returns)

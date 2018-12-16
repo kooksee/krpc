@@ -1,5 +1,5 @@
 // Commons for HTTP handling
-package rpcserver
+package krpcs
 
 import (
 	"bufio"
@@ -14,7 +14,6 @@ import (
 	"golang.org/x/net/netutil"
 
 	types "github.com/kooksee/krpc/types"
-	"github.com/rs/zerolog/log"
 )
 
 // Config is an RPC server configuration.
@@ -48,10 +47,10 @@ func StartHTTPServer(listenAddr string, handler http.Handler, config Config) net
 		listener = netutil.LimitListener(listener, config.MaxOpenConnections)
 	}
 
-	go func() {
-		err := http.Serve(listener, RecoverAndLogHandler(maxBytesHandler{h: handler, n: maxBodyBytes}))
+	if err := http.Serve(listener, RecoverAndLogHandler(maxBytesHandler{h: handler, n: maxBodyBytes})); err != nil {
 		log.Error().Err(err).Msg("RPC HTTP server stopped")
-	}()
+		panic(err.Error())
+	}
 
 	return listener
 }
@@ -59,7 +58,7 @@ func StartHTTPServer(listenAddr string, handler http.Handler, config Config) net
 // StartHTTPAndTLSServer starts an HTTPS server on listenAddr with the given
 // handler.
 // It wraps handler with RecoverAndLogHandler.
-func StartHTTPAndTLSServer(listenAddr string, handler http.Handler, certFile, keyFile string, config Config) net.Listener {
+func StartHTTPAndTLSServer(listenAddr string, handler http.Handler, certFile, keyFile string, config Config) {
 	var proto, addr string
 	parts := strings.SplitN(listenAddr, "://", 2)
 	if len(parts) != 2 {
@@ -78,12 +77,10 @@ func StartHTTPAndTLSServer(listenAddr string, handler http.Handler, certFile, ke
 		listener = netutil.LimitListener(listener, config.MaxOpenConnections)
 	}
 
-	go func() {
-		err := http.ServeTLS(listener, RecoverAndLogHandler(maxBytesHandler{h: handler, n: maxBodyBytes}), certFile, keyFile)
+	if err := http.ServeTLS(listener, RecoverAndLogHandler(maxBytesHandler{h: handler, n: maxBodyBytes}), certFile, keyFile); err != nil {
 		log.Error().Err(err).Msg("RPC HTTPS server stopped")
-	}()
-
-	return listener
+		panic(err.Error())
+	}
 }
 
 func WriteRPCResponseHTTPError(w http.ResponseWriter, httpCode int, res types.RPCResponse) {

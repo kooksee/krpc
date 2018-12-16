@@ -1,4 +1,4 @@
-package rpcserver
+package krpcs
 
 import (
 	"fmt"
@@ -25,11 +25,7 @@ func TestMaxOpenConnections(t *testing.T) {
 		time.Sleep(10 * time.Millisecond)
 		fmt.Fprint(w, "some body")
 	})
-	l, err := StartHTTPServer("tcp://127.0.0.1:0", mux, Config{MaxOpenConnections: max})
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer l.Close()
+	StartHTTPServer("tcp://127.0.0.1:0", mux, Config{MaxOpenConnections: max})
 
 	// Make N GET calls to the server.
 	attempts := max * 2
