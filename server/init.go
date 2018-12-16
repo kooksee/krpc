@@ -1,12 +1,12 @@
 package krpcs
 
 import (
-	logger "github.com/rs/zerolog/log"
 	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 )
 
-var log zerolog.Logger
+var logger zerolog.Logger
 
 func Init() {
-	log = logger.Logger.With().Str("pkg", "rpcserver").Logger()
+	logger = log.Logger.With().Str("pkg", "rpc_server").Logger()
 }

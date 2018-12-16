@@ -8,13 +8,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/tendermint/go-amino"
-	rs "github.com/kooksee/krpc/server"
 	types "github.com/kooksee/krpc/types"
+	"github.com/tendermint/go-amino"
 )
 
 //////////////////////////////////////////////////////////////////////////////
@@ -25,12 +23,12 @@ import (
 // JSON-RPC over HTTP
 
 func testMux() *http.ServeMux {
-	funcMap := map[string]*rs.RPCFunc{
-		"c": rs.NewRPCFunc(func(s string, i int) (string, error) { return "foo", nil }, "s,i"),
+	funcMap := map[string]*RPCFunc{
+		"c": NewRPCFunc(func(s string, i int) (string, error) { return "foo", nil }, "s,i"),
 	}
 	cdc := amino.NewCodec()
 	mux := http.NewServeMux()
-	rs.RegisterRPCFuncs(mux, funcMap, cdc)
+	RegisterRPCFuncs(mux, funcMap, cdc)
 
 	return mux
 }
@@ -111,44 +109,4 @@ func TestUnknownRPCPath(t *testing.T) {
 
 	// Always expecting back a 404 error
 	require.Equal(t, http.StatusNotFound, res.StatusCode, "should always return 404")
-}
-
-//////////////////////////////////////////////////////////////////////////////
-// JSON-RPC over WEBSOCKETS
-
-func TestWebsocketManagerHandler(t *testing.T) {
-	s := newWSServer()
-	defer s.Close()
-
-	// check upgrader works
-	d := websocket.Dialer{}
-	c, dialResp, err := d.Dial("ws://"+s.Listener.Addr().String()+"/websocket", nil)
-	require.NoError(t, err)
-
-	if got, want := dialResp.StatusCode, http.StatusSwitchingProtocols; got != want {
-		t.Errorf("dialResp.StatusCode = %q, want %q", got, want)
-	}
-
-	// check basic functionality works
-	req, err := types.MapToRequest(amino.NewCodec(), "TestWebsocketManager", "c", map[string]interface{}{"s": "a", "i": 10})
-	require.NoError(t, err)
-	err = c.WriteJSON(req)
-	require.NoError(t, err)
-
-	var resp types.RPCResponse
-	err = c.ReadJSON(&resp)
-	require.NoError(t, err)
-	require.Nil(t, resp.Error)
-}
-
-func newWSServer() *httptest.Server {
-	funcMap := map[string]*rs.RPCFunc{
-		"c": rs.NewWSRPCFunc(func(wsCtx types.WSRPCContext, s string, i int) (string, error) { return "foo", nil }, "s,i"),
-	}
-	wm := rs.NewWebsocketManager(funcMap, amino.NewCodec())
-
-	mux := http.NewServeMux()
-	mux.HandleFunc("/websocket", wm.WebsocketHandler)
-
-	return httptest.NewServer(mux)
 }

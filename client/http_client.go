@@ -14,8 +14,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/tendermint/go-amino"
 
-	types "github.com/kooksee/krpc/types"
 	"github.com/google/uuid"
+	types "github.com/kooksee/krpc/types"
 )
 
 const (
@@ -108,9 +108,9 @@ func (c *JSONRPCClient) Call(method string, params map[string]interface{}, resul
 	if err != nil {
 		return err
 	}
-	log.Debug().Msg(string(requestBytes))
+	logger.Debug().Msg(string(requestBytes))
 	requestBuf := bytes.NewBuffer(requestBytes)
-	log.Info().Msg(fmt.Sprintf("RPC request to %v (%v): %v", c.client, method, string(requestBytes)))
+	logger.Info().Msg(fmt.Sprintf("RPC request to %v (%v): %v", c.client, method, string(requestBytes)))
 	httpResponse, err := c.client.Post(c.address, "text/json", requestBuf)
 	if err != nil {
 		return err
@@ -121,7 +121,7 @@ func (c *JSONRPCClient) Call(method string, params map[string]interface{}, resul
 	if err != nil {
 		return err
 	}
-	log.Info().Msg(fmt.Sprintf("RPC response: %v", string(responseBytes)))
+	logger.Info().Msg(fmt.Sprintf("RPC response: %v", string(responseBytes)))
 	return unmarshalResponseBytes(c.cdc, responseBytes, result)
 }
 
@@ -156,7 +156,7 @@ func (c *URIClient) Call(method string, params map[string]interface{}, result in
 	if err != nil {
 		return err
 	}
-	log.Info().Msg(fmt.Sprintf("URI request to %v (%v): %v", c.address, method, values))
+	logger.Info().Msg(fmt.Sprintf("URI request to %v (%v): %v", c.address, method, values))
 	resp, err := c.client.PostForm(c.address+"/"+method, values)
 	if err != nil {
 		return err
@@ -183,7 +183,7 @@ func (c *URIClient) SetCodec(cdc *amino.Codec) {
 func unmarshalResponseBytes(cdc *amino.Codec, responseBytes []byte, result interface{}) error {
 	// Read response.  If rpc/core/types is imported, the result will unmarshal
 	// into the correct type.
-	log.Debug().Msg(string(responseBytes))
+	logger.Debug().Msg(string(responseBytes))
 	var err error
 	response := &types.RPCResponse{}
 	err = json.Unmarshal(responseBytes, response)

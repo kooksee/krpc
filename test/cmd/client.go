@@ -1,19 +1,13 @@
 package main
 
 import (
-	"github.com/kooksee/golog"
 	"fmt"
-	"github.com/tendermint/go-amino"
 	"github.com/kooksee/krpc/client"
 	"github.com/kooksee/krpc/test"
+	"github.com/tendermint/go-amino"
 )
 
 func main() {
-	cfg := golog.DefaultConfig()
-	cfg.Service = "test krpc"
-	//cfg.IsDebug=false
-	cfg.InitLog()
-
 	krpcc.Init()
 	c := krpcc.NewJSONRPCClient("tcp://0.0.0.0:8008")
 

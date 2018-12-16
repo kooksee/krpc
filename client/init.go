@@ -1,14 +1,14 @@
 package krpcc
 
 import (
-	logger "github.com/rs/zerolog/log"
 	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 )
 
-var log zerolog.Logger
+var logger zerolog.Logger
 
 func Init() {
-	log = logger.Logger.With().Str("pkg", "rpcclient").Logger()
+	logger = log.Logger.With().Str("pkg", "rpc_client").Logger()
 }
 
 type M map[string]interface{}
@@ -17,8 +17,4 @@ type P struct {
 	Method string
 	Params map[string]interface{}
 	Result interface{}
-}
-
-func Call() {
-
 }

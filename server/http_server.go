@@ -37,7 +37,7 @@ func StartHTTPServer(listenAddr string, handler http.Handler, config Config) net
 
 	proto, addr := parts[0], parts[1]
 
-	log.Info().Msgf("Starting RPC HTTP server on %s", listenAddr)
+	logger.Info().Msgf("Starting RPC HTTP server on %s", listenAddr)
 	listener, err := net.Listen(proto, addr)
 	if err != nil {
 		panic(fmt.Sprintf("Failed to listen on %v: %v", listenAddr, err))
@@ -48,7 +48,7 @@ func StartHTTPServer(listenAddr string, handler http.Handler, config Config) net
 	}
 
 	if err := http.Serve(listener, RecoverAndLogHandler(maxBytesHandler{h: handler, n: maxBodyBytes})); err != nil {
-		log.Error().Err(err).Msg("RPC HTTP server stopped")
+		logger.Error().Err(err).Msg("RPC HTTP server stopped")
 		panic(err.Error())
 	}
 
@@ -66,7 +66,7 @@ func StartHTTPAndTLSServer(listenAddr string, handler http.Handler, certFile, ke
 	}
 	proto, addr = parts[0], parts[1]
 
-	log.Info().Msgf("Starting RPC HTTPS server on %s (cert: %q, key: %q)", listenAddr, certFile, keyFile)
+	logger.Info().Msgf("Starting RPC HTTPS server on %s (cert: %q, key: %q)", listenAddr, certFile, keyFile)
 
 	listener, err := net.Listen(proto, addr)
 	if err != nil {
@@ -78,7 +78,7 @@ func StartHTTPAndTLSServer(listenAddr string, handler http.Handler, certFile, ke
 	}
 
 	if err := http.ServeTLS(listener, RecoverAndLogHandler(maxBytesHandler{h: handler, n: maxBodyBytes}), certFile, keyFile); err != nil {
-		log.Error().Err(err).Msg("RPC HTTPS server stopped")
+		logger.Error().Err(err).Msg("RPC HTTPS server stopped")
 		panic(err.Error())
 	}
 }
@@ -133,7 +133,7 @@ func RecoverAndLogHandler(handler http.Handler) http.Handler {
 					WriteRPCResponseHTTP(rww, res)
 				} else {
 					// For the rest,
-					log.Error().Str("stack", string(debug.Stack())).Msg("Panic in RPC HTTP handler")
+					logger.Error().Str("stack", string(debug.Stack())).Msg("Panic in RPC HTTP handler")
 					rww.WriteHeader(http.StatusInternalServerError)
 					WriteRPCResponseHTTP(rww, types.RPCInternalError("", e.(error)))
 				}
@@ -144,7 +144,7 @@ func RecoverAndLogHandler(handler http.Handler) http.Handler {
 			if rww.Status == -1 {
 				rww.Status = 200
 			}
-			log.Info().Str("method", r.Method).Str("url", r.URL.String()).Int("status", rww.Status).Int64("duration", durationMS).Str("remoteAddr", r.RemoteAddr).Msg("Served RPC HTTP response")
+			logger.Info().Str("method", r.Method).Str("url", r.URL.String()).Int("status", rww.Status).Int64("duration", durationMS).Str("remoteAddr", r.RemoteAddr).Msg("Served RPC HTTP response")
 		}()
 
 		handler.ServeHTTP(rww, r)
