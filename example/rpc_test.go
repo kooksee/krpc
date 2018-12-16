@@ -1,11 +1,8 @@
-package krpc
+package example
 
 import (
 	"bytes"
-	"context"
 	crand "crypto/rand"
-	"encoding/json"
-	"fmt"
 	"net/http"
 	"os"
 	"os/exec"
@@ -29,8 +26,6 @@ const (
 
 	unixSocket = "/tmp/rpc_test.sock"
 	unixAddr   = "unix://" + unixSocket
-
-	websocketEndpoint = "/websocket/endpoint"
 )
 
 type ResultEcho struct {
@@ -52,7 +47,6 @@ type ResultEchoDataBytes struct {
 // Define some routes
 var Routes = map[string]*server.RPCFunc{
 	"echo":            server.NewRPCFunc(EchoResult, "arg"),
-	"echo_ws":         server.NewWSRPCFunc(EchoWSResult, "arg"),
 	"echo_bytes":      server.NewRPCFunc(EchoBytesResult, "arg"),
 	"echo_data_bytes": server.NewRPCFunc(EchoDataBytesResult, "arg"),
 	"echo_int":        server.NewRPCFunc(EchoIntResult, "arg"),
@@ -101,16 +95,12 @@ func setup() {
 
 	mux := http.NewServeMux()
 	server.RegisterRPCFuncs(mux, Routes, RoutesCdc)
-	wm := server.NewWebsocketManager(Routes, RoutesCdc, server.ReadWait(5*time.Second), server.PingPeriod(1*time.Second))
-	mux.HandleFunc(websocketEndpoint, wm.WebsocketHandler)
 	go func() {
 		server.StartHTTPServer(tcpAddr, mux, server.Config{})
 	}()
 
 	mux2 := http.NewServeMux()
 	server.RegisterRPCFuncs(mux2, Routes, RoutesCdc)
-	wm = server.NewWebsocketManager(Routes, RoutesCdc)
-	mux2.HandleFunc(websocketEndpoint, wm.WebsocketHandler)
 	go func() {
 		server.StartHTTPServer(unixAddr, mux2, server.Config{})
 	}()
@@ -186,146 +176,7 @@ func testWithHTTPClient(t *testing.T, cl client.HTTPClient) {
 	assert.Equal(t, got4, val4)
 }
 
-func echoViaWS(cl *client.WSClient, val string) (string, error) {
-	params := map[string]interface{}{
-		"arg": val,
-	}
-	err := cl.Call(context.Background(), "echo", params)
-	if err != nil {
-		return "", err
-	}
-
-	msg := <-cl.ResponsesCh
-	if msg.Error != nil {
-		return "", err
-
-	}
-	result := new(ResultEcho)
-	err = json.Unmarshal(msg.Result, result)
-	if err != nil {
-		return "", nil
-	}
-	return result.Value, nil
-}
-
-func echoBytesViaWS(cl *client.WSClient, bytes []byte) ([]byte, error) {
-	params := map[string]interface{}{
-		"arg": bytes,
-	}
-	err := cl.Call(context.Background(), "echo_bytes", params)
-	if err != nil {
-		return []byte{}, err
-	}
-
-	msg := <-cl.ResponsesCh
-	if msg.Error != nil {
-		return []byte{}, msg.Error
-
-	}
-	result := new(ResultEchoBytes)
-	err = json.Unmarshal(msg.Result, result)
-	if err != nil {
-		return []byte{}, nil
-	}
-	return result.Value, nil
-}
-
-func testWithWSClient(t *testing.T, cl *client.WSClient) {
-	val := "acbd"
-	got, err := echoViaWS(cl, val)
-	require.Nil(t, err)
-	assert.Equal(t, got, val)
-
-	val2 := randBytes(t)
-	got2, err := echoBytesViaWS(cl, val2)
-	require.Nil(t, err)
-	assert.Equal(t, got2, val2)
-}
-
 //-------------
-
-func TestServersAndClientsBasic(t *testing.T) {
-	serverAddrs := [...]string{tcpAddr, unixAddr}
-	for _, addr := range serverAddrs {
-		cl1 := client.NewURIClient(addr)
-		fmt.Printf("=== testing server on %s using URI client", addr)
-		testWithHTTPClient(t, cl1)
-
-		cl2 := client.NewJSONRPCClient(addr)
-		fmt.Printf("=== testing server on %s using JSONRPC client", addr)
-		testWithHTTPClient(t, cl2)
-
-		cl3 := client.NewWSClient(addr, websocketEndpoint)
-		fmt.Printf("=== testing server on %s using WS client", addr)
-		testWithWSClient(t, cl3)
-		cl3.Stop()
-	}
-}
-
-func TestHexStringArg(t *testing.T) {
-	cl := client.NewURIClient(tcpAddr)
-	// should NOT be handled as hex
-	val := "0xabc"
-	got, err := echoViaHTTP(cl, val)
-	require.Nil(t, err)
-	assert.Equal(t, got, val)
-}
-
-func TestQuotedStringArg(t *testing.T) {
-	cl := client.NewURIClient(tcpAddr)
-	// should NOT be unquoted
-	val := "\"abc\""
-	got, err := echoViaHTTP(cl, val)
-	require.Nil(t, err)
-	assert.Equal(t, got, val)
-}
-
-func TestWSNewWSRPCFunc(t *testing.T) {
-	cl := client.NewWSClient(tcpAddr, websocketEndpoint)
-	defer cl.Stop()
-
-	val := "acbd"
-	params := map[string]interface{}{
-		"arg": val,
-	}
-	require.Nil(t, cl.Call(context.Background(), "echo_ws", params))
-
-	msg := <-cl.ResponsesCh
-	if msg.Error != nil {
-		t.Fatal(msg.Error)
-	}
-	result := new(ResultEcho)
-	require.Nil(t, json.Unmarshal(msg.Result, result))
-	got := result.Value
-	assert.Equal(t, got, val)
-}
-
-func TestWSHandlesArrayParams(t *testing.T) {
-	cl := client.NewWSClient(tcpAddr, websocketEndpoint)
-	defer cl.Stop()
-
-	val := "acbd"
-	params := []interface{}{val}
-	require.Nil(t, cl.CallWithArrayParams(context.Background(), "echo_ws", params))
-
-	msg := <-cl.ResponsesCh
-	if msg.Error != nil {
-		t.Fatalf("%+v", msg.Error)
-	}
-	result := new(ResultEcho)
-	require.Nil(t, json.Unmarshal(msg.Result, result))
-	got := result.Value
-	assert.Equal(t, got, val)
-}
-
-// TestWSClientPingPong checks that a client & server exchange pings
-// & pongs so connection stays alive.
-func TestWSClientPingPong(t *testing.T) {
-	cl := client.NewWSClient(tcpAddr, websocketEndpoint)
-	defer cl.Stop()
-
-	time.Sleep(6 * time.Second)
-}
 
 func randBytes(t *testing.T) []byte {
 	rand.Seed(time.Now().UnixNano())
